@@ -1,0 +1,58 @@
+# Import necessary libraries
+import spacy
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer, util
+import requests
+from datasets import load_dataset
+
+# Load spaCy model for named entity recognition (NER)
+nlp = spacy.load("en_core_web_sm")
+
+# Example article text
+text = "Elon Musk announced Tesla will launch a new car model by 2025."
+
+# Process the text using spaCy
+doc = nlp(text)
+
+# Extract named entities
+entities = [(entity.text, entity.label_) for entity in doc.ents]
+print("Named Entities:", entities)
+
+# Example fact-checking database and extracted claim
+fact_checked_claims = ["Tesla will release a new car model in 2025.", "Elon Musk confirms new Tesla car model."]
+extracted_claim = "Elon Musk announced Tesla will launch a new car model by 2025."
+
+# Create a TF-IDF vectorizer
+vectorizer = TfidfVectorizer()
+tfidf_matrix = vectorizer.fit_transform(fact_checked_claims + [extracted_claim])
+
+# Calculate cosine similarity between the extracted claim and fact-checked claims
+cosine_sim = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
+print("Cosine Similarity (TF-IDF):", cosine_sim)
+
+# Load a pre-trained SentenceTransformer model for semantic similarity
+model = SentenceTransformer('all-MiniLM-L6-v2')
+sentences = ["Tesla will release a new car model in 2025.", "Elon Musk confirmed a new car release."]
+embeddings = model.encode(sentences, convert_to_tensor=True)
+
+# Calculate semantic similarity using cosine similarity
+similarity = util.pytorch_cos_sim(embeddings[0], embeddings[1])
+print("Semantic Similarity (SentenceTransformer):", similarity)
+
+# Query Wikidata API for information
+query = "Tesla Model release 2025"
+url = f"https://www.wikidata.org/w/api.php?action=wbsearchentities&search={query}&language=en&format=json"
+response = requests.get(url)
+print("Wikidata API Response:", response.json())
+
+# Load the SQuAD dataset from Hugging Face
+dataset = load_dataset('squad')
+
+# Print the column names of the dataset
+print("\nColumn names in the dataset:")
+print(dataset['train'].column_names)
+
+# Print the first example in the training set
+print("\nFirst example in the training set:")
+print(dataset['train'][0])
